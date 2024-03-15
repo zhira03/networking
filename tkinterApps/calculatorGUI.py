@@ -37,7 +37,7 @@ def calculate(operation):
     elif operation == "subtract":
         result = num1 - num2
     elif operation == "divide":
-        if num2 == 0:
+        if num1 | num2 == 0:
             result = "Can't divide by 0"
         else:
             result = float(num1 / num2)
