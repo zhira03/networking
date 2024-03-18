@@ -3,6 +3,8 @@ from tkinter import filedialog
 from tkinter import messagebox
 import os
 
+from pyrsistent import v
+
 root = Tk()
 root.geometry("720x500")
 menubar = Menu(root)
@@ -19,8 +21,8 @@ themes_menu = Menu(view_button, tearoff=0)
 def open_file():
     global filename
     filename = filedialog.askopenfilename(defaultextension=".txt",filetypes =[("All Files","*.*"),("Text Documents","*.txt")])
-    if filename == "": # If no file chosen.
-        filename = None # Absence of file.
+    if filename == "": 
+        filename = None 
     else:
         root.title(os.path.basename(filename) + " - Taku's App Bishhhh!! LOL") 
         writing_pad.delete(1.0,END)
@@ -56,23 +58,65 @@ def new_file():
     filename = None
     writing_pad.delete(1.0,END)
 
-def help_box():
-    messagebox.showinfo("Help About my ass :) ")
+def line_number_updater(event=None):
+    phrase = ""
+    if showln.get():
+        endline, endcolumn = writing_pad.index('end-1c').split('.')
+        phrase = '\n'.join(map(str, range(1, int(endline))))
+        current_line, current_column = writing_pad.index("insert").split(".")
+        infor_bar.config(text=f"Line: {current_line} | Column: {current_column}")
+    ln_lable.config(text=phrase, anchor = NW)
 
+
+def hightlight_line():
+    writing_pad.tag_remove('active_line', 1.0 , 'end')
+    writing_pad.tag_add('active_line', 'insert linestart', 'insert line-end+1c')
+    writing_pad.after(start_highlight)
+
+def start_highlight(event=None):
+    val = hi_light_line.get()
+    undo_highlight() if not val else hightlight_line()
+
+def undo_highlight():
+        writing_pad.tag_remove("active_line", 1.0, "end")
+
+def show_info_bar():
+    val = showInfoBar.get()
+    if val:
+        infor_bar.pack(expand=NO, fill=None, side=RIGHT, anchor=SE)
+    elif not val:
+        infor_bar.pack_forget()
+
+def help_box():
+    mess = ( " hey there")
+    messagebox.showwarning("Help", mess)
+    
+def exit_app(event = None):
+    if messagebox.askokcancel("Quit", "Do you really want to ditch?"):
+        save()
+        root.destroy()
+    root.protocol("WM_DELETE_WINDOW")
+
+    
 def cut():
     writing_pad.event_generate("<<Cut>>")
+    line_number_updater()
 
 def copy():
     writing_pad.event_generate("<<Copy>>")
+    line_number_updater()
 
 def paste():
     writing_pad.event_generate("<<Paste>>")
+    line_number_updater()
 
 def undo():
     edit_button.event_add("<<Undo>>")
+    line_number_updater()
 
 def redo():
     edit_button.event_generate("<<Redo>>")
+    line_number_updater()
 
 def select_all():
     writing_pad.tag_add("sel", "1.0", "end")
@@ -122,8 +166,13 @@ class SearchHandler:
 
 search_handler = SearchHandler()
 
-    
-    #def 
+def theme_selector():
+    global background_col, foreground_col
+    val = theme_color.get()
+    colors = color_options.get(val)
+    foreground_col ,background_col = colors.split(".")#failing to split. None type error thrown
+    foreground_col ,background_col = '#'+foreground_col, '#'+background_col
+    writing_pad.config(bg=background_col, fg=foreground_col)
 
 #adding functionalitily
 #file menu
@@ -133,6 +182,8 @@ filemenu.add_command(label="Save", accelerator="Ctrl + S", compound=LEFT, comman
 filemenu.add_command(label="Save As", accelerator="Ctrl + Alt + S", compound=LEFT, command=save_as)
 filemenu.add_command(label="Close", accelerator="Ctrl + W", compound=LEFT)
 filemenu.add_command(label="Close All", accelerator="Ctrl + Shift + W", compound=LEFT)
+filemenu.add_command(label="Exit", accelerator="Alt + F4", compound=LEFT, command=exit_app)
+
 
 #edit menu
 edit_button.add_command(label="Undo", accelerator="Ctrl + Z", compound=LEFT,command=undo)
@@ -147,14 +198,32 @@ edit_button.add_separator()
 edit_button.add_command(label="Select All", accelerator="Ctrl + A", compound=LEFT, underline=0, command=select_all)
 
 #view menu
-view_button.add_checkbutton(label="Show Line Number")
-view_button.add_checkbutton(label="Show info Bar at the Bottom")
+showln = IntVar()
+showln.set(1)
+hi_light_line = IntVar()
+showInfoBar = IntVar()
+showInfoBar.set(1)
+view_button.add_checkbutton(label="Show Line Number", variable=showln)
+view_button.add_checkbutton(label="Show info Bar at the Bottom", variable=showInfoBar)
+view_button.add_checkbutton(label="Highlight Line", variable=hi_light_line)
 view_button.add_cascade(label="Themes", menu=themes_menu)
+
 #view menu extending into themes_menu
-themes_menu.add_radiobutton(label="1. Default White")
-themes_menu.add_radiobutton(label="2. Dracular Night")
-themes_menu.add_radiobutton(label="3. System Theme")
-themes_menu.add_radiobutton(label="4. Monotone")
+color_options = {
+'1. Default White': '000000.FFFFFF',
+'2. Greygarious Grey':'83406A.D1D4D1',
+'3. Lovely Lavender':'202B4B.E1E1FF' , 
+'4. Aquamarine': '5B8340.D1E7E0',
+'5. Bold Beige': '4B4620.FFF0E1',
+'6. Cobalt Blue':'ffffBB.3333aa',
+'7. Olive Green': 'D1E7E0.5B8340',
+}
+theme_color = StringVar()
+theme_color.set('1. Default White')
+for choice in sorted(color_options):
+    themes_menu.add_checkbutton(label=choice, variable= theme_color, command= theme_selector)
+menubar.add_cascade(label="View", menu= view_button)
+
 
 #help menu
 help_button.add_command(label="Send FeedBack", compound=LEFT, underline=0)
@@ -171,16 +240,20 @@ menubar.add_cascade(label="Help" , menu=help_button)
 #shortcuts
 short_cut_bar = Frame(root, height=25, bg="light sea green")
 icons = {"newFile.png","save.png"}
+"""
 for i, icon in enumerate(icons):
-    useIcon = PhotoImage(file = 'icons/'+ icon)
-    action1 = eval(icon)
-    tool_bar = Button(short_cut_bar, image=useIcon, command=action1)
-    tool_bar.image_names(useIcon)
-    tool_bar.pack(side=LEFT)
+    try: 
+        useIcon = PhotoImage(file = 'C:\\Users\\HP\\Desktop\\VisualStudio coding\\networking\\tkinterApps\\icons')
+        action1 = eval(icon)
+        tool_bar = Button(short_cut_bar, image=useIcon, command=action1)
+        tool_bar.image_names(useIcon)
+        tool_bar.pack(side=LEFT)
+    except PermissionError:
+        print("Permission not granted. Run as Administrator")
+"""    
 short_cut_bar.pack(expand=NO, fill=X)
-
-in_lable = Label(root, width=2, bg="antique white")
-in_lable.pack(side=LEFT, anchor=NW, fill=Y)
+ln_lable = Label(root, width=5, bg="antique white")
+ln_lable.pack(side=LEFT, anchor=NW, fill=Y)
 
 #text widget and scroll widget
 writing_pad = Text(root, undo=TRUE, font="Arial")
@@ -190,7 +263,12 @@ writing_pad.config(yscrollcommand=scrolling.set)
 scrolling.config(command=writing_pad.yview)
 scrolling.pack(side=RIGHT, fill=Y)
 
+#line info widget
+infor_bar = Label(writing_pad, text="Line: 1 | Column: 0")
+infor_bar.pack(expand=NO, fill=None, side=RIGHT, anchor=SE)
 
+writing_pad.bind("<Any-KeyPress>", line_number_updater)
+writing_pad.tag_config("active_line", background="ivory2")
 root.config(menu=menubar)
 
 root.mainloop()
